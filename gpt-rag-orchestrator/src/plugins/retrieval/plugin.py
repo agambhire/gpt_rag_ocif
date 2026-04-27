@@ -75,7 +75,7 @@ class RetrievalPlugin:
             azure_search_token = await self._get_azure_search_token()
 
             body: Dict[str, Any] = {
-                "select": "title, content, url, filepath, chunk_id",
+                "select": "title, content, url, filepath, chunk_id, source_title, source_url",
                 "top": self.search_top_k
             }
             if self.search_approach == "term":
