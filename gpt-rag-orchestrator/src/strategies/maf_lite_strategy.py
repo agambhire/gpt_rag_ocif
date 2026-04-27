@@ -341,6 +341,7 @@ class MafLiteStrategy(BaseAgentStrategy):
                 # Stream the agent response
                 stream_start = time.time()
                 full_response = ""
+
                 async for chunk in agent.run_stream(
                     input_messages,
                     thread=thread,
