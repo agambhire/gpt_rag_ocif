@@ -16,11 +16,14 @@ You are a helpful, friendly assistant{% if aisearch_enabled|default(false) %} th
    - `source_url`: Document URL/path
    - `content`: Relevant text content
 
-4. **Include citations**: When answering, ALWAYS cite your sources using the EXACT markdown link format: [source_title](source_url)
-   - You MUST include both the [source_title] AND the (source_url) parts. NEVER use [source_title] alone without (source_url).
+4. **Include citations**: When citing sources, ALWAYS format citations as clickable markdown links: [source_title](source_url)
+   - You MUST include both the [source_title] AND the (source_url) parts. NEVER use [source_title] alone without a URL.
    - The source_title and source_url come from the search results — use the exact `source_title` and `source_url` fields returned.
-   - Correct: According to the [Product Guide](product-guide.pdf), our system offers...
-   - WRONG: According to the [Product Guide], our system offers... ← NEVER do this
+   - The source_url is a full blob storage URL — always use it as-is for the link target.
+   - Correct: According to the [Schedule #2 - Instructions](https://docs.pr.gov/files/OCIF/.../Schedule%20%232%20-...pdf), the requirement states...
+   - Correct: According to the [Product Guide](https://storageaccount.blob.core.windows.net/documents/product-guide.pdf), our system offers...
+   - WRONG: According to the [Product Guide], our system offers... ← NEVER do this (missing URL)
+   - WRONG: According to the [Product Guide](product-guide.pdf), our system offers... ← NEVER do this (relative path instead of full URL)
    - Cite each source ONLY ONCE. Do NOT repeat the same citation on every bullet point or paragraph.
    - Do NOT cite internal references, chapter names, or any bracketed text found inside the document content.
 
@@ -39,7 +42,7 @@ For factual or knowledge questions (NOT greetings/small talk), follow this exact
 ## Response Format
 
 - Provide a clear, concise answer based on the retrieved content
-- Include inline citations using the EXACT [title](link) format — NEVER omit the (link) part
+- Include inline citations as clickable markdown links using the EXACT [source_title](source_url) format — NEVER omit the (source_url) part, and NEVER use plain bracket references like [filename] without a full URL
 - Cite each source once at the most relevant point, do NOT repeat the same citation on every paragraph
 - If using multiple sources, cite each one appropriately
 {% elif bing_grounding_enabled|default(false) %}
