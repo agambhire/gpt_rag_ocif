@@ -78,8 +78,8 @@ async def acquire_obo_search_token(api_access_token: Optional[str], allow_anonym
 
 class SearchResult(BaseModel):
     """Represents a single search result from AI Search."""
-    title: str
-    link: str
+    source_title: str
+    source_url: str
     content: str
 
 
@@ -538,17 +538,17 @@ class SearchClient:
             results_list = []
             for result in search_results.get('value', []):
                 title = result.get('title', 'reference') or 'reference'
-                link = result.get('filepath') or result.get('url', '') or ''
+                source_url = result.get('url', '') or result.get('filepath', '') or ''
                 content = result.get('content', '')
                 
                 # Debug log each document with formatted output (remove line breaks)
                 content_preview = content[:200] if len(content) > 200 else content
                 content_preview = ' '.join(content_preview.split())  # Replace all whitespace/newlines with single space
-                logging.debug(f"[Retrieval] Document: [{title}]({link}): {content_preview}")
+                logging.debug(f"[Retrieval] Document: [{title}]({source_url}): {content_preview}")
                 
                 search_result = SearchResult(
-                    title=title,
-                    link=link,
+                    source_title=title,
+                    source_url=source_url,
                     content=content
                 )
                 results_list.append(search_result.model_dump())
