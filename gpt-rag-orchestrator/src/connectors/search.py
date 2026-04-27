@@ -491,7 +491,7 @@ class SearchClient:
             
             # Build search body according to search approach
             search_body: Dict[str, Any] = {
-                "select": "title,content,url,filepath,chunk_id",
+                "select": "title,content,url,filepath,chunk_id,source_title,source_url",
                 "top": self.search_top_k
             }
             
@@ -537,8 +537,8 @@ class SearchClient:
             # Process search results
             results_list = []
             for result in search_results.get('value', []):
-                title = result.get('title', 'reference') or 'reference'
-                source_url = result.get('url', '') or result.get('filepath', '') or ''
+                title = result.get('source_title') or result.get('title', 'reference') or 'reference'
+                source_url = result.get('source_url') or result.get('url', '') or result.get('filepath', '') or ''
                 content = result.get('content', '')
                 
                 # Debug log each document with formatted output (remove line breaks)
