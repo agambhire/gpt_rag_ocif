@@ -51,6 +51,7 @@ OAUTH_CONFIGURED = _oauth_is_configured()
 ALLOW_ANONYMOUS = config.get("ALLOW_ANONYMOUS", (not _is_running_in_azure_host) or (not OAUTH_CONFIGURED), bool)
 STORAGE_ACCOUNT_NAME = config.get("STORAGE_ACCOUNT_NAME", "", str)
 SHOW_STATISTICS = config.get("SHOW_STATISTICS", False, bool)
+USE_BLOB_REFERENCE_RESOLUTION = config.get("USE_BLOB_REFERENCE_RESOLUTION", False, bool)
 
 
 def _normalize_container_name(container: Optional[str]) -> str:
@@ -119,12 +120,19 @@ def generate_blob_sas_url(container: str, blob_name: str, expiry_hours: int = 1)
 
 def resolve_reference_href(raw_href: str) -> Optional[str]:
     """
-    Resolve a reference href to a SAS URL. Returns None if the blob doesn't exist.
+    Resolve a reference href.
+    When USE_BLOB_REFERENCE_RESOLUTION is True, resolves relative paths to blob SAS URLs.
+    Otherwise, returns the href as-is (direct customer URLs from index).
+    Returns None if the href is empty or (in blob mode) the blob doesn't exist.
     """
     href = (raw_href or "").strip()
     if not href:
         return None
 
+    if not USE_BLOB_REFERENCE_RESOLUTION:
+        return href
+
+    # Blob resolution mode
     split_href = urllib.parse.urlsplit(href)
     if split_href.scheme or split_href.netloc:
         return href
