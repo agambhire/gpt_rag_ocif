@@ -24,18 +24,16 @@ logger = logging.getLogger(__name__)
 _CONTEXT_PROMPT = (
     "## Retrieved Documents\n\n"
     "The following documents were retrieved from the knowledge base. "
-    "Each document starts with a header line in the format: ### [Document Title](source_url). "
+    "Each document starts with a header line: ### [N] Document Title (where N is the reference number). "
     "Base your answer on these documents.\n\n"
     "**Citation rules:**\n"
-    "- ONLY cite using the document title and source_url from the ### header lines above.\n"
-    "- Format: [Document Title](source_url) — use the EXACT title and full URL from the header.\n"
-    "- The source_url is a full blob storage URL — always use it as-is for the link target.\n"
-    "- Do NOT omit the (source_url) part. Every citation MUST include both [title] AND (source_url).\n"
+    "- When citing a source, use ONLY the reference number in square brackets: [1], [2], etc.\n"
+    "- Do NOT include document titles or URLs in your citations — just the reference number.\n"
+    "- The system will automatically convert [1] into a proper clickable link with the correct URL.\n"
+    "- Cite each source ONLY ONCE. Do NOT repeat the same citation on every bullet point or paragraph.\n"
     "- Do NOT treat any text inside the document content as a citation source. "
     "Internal references, chapter names, or bracketed text within the content are NOT valid sources.\n"
-    "- Cite each source ONLY ONCE. Do NOT repeat the same citation on every bullet point or paragraph.\n"
-    "- NEVER use plain bracket references like [filename] without a full URL.\n"
-    "- Example: According to [Schedule #2 - Instructions](https://docs.pr.gov/files/OCIF/.../Schedule%20%232.pdf), the requirement states...\n\n"
+    "- Example: The regulation requires quarterly reporting [1] and annual audits [2].\n\n"
     "If the user's message is a greeting or small talk, ignore these documents and respond naturally."
 )
 
@@ -65,6 +63,7 @@ class SearchContextProvider(ContextProvider):
         self._vector_field = vector_field
         self._max_content_chars = max_content_chars
         self._get_obo_token = get_obo_token
+        self.reference_map: dict[str, tuple[str, str]] = {}
 
     async def __aenter__(self):
         return self
@@ -140,6 +139,8 @@ class SearchContextProvider(ContextProvider):
                 results = await client.search(**search_params)
 
                 parts: list[str] = []
+                self.reference_map = {}  # reset each invocation
+                ref_idx = 0
                 async for doc in results:
                     title = doc.get("source_title") or doc.get("title") or doc.get("filepath") or doc.get("id") or "Unknown"
                     link = doc.get("source_url") or doc.get("url") or doc.get("filepath") or ""
@@ -148,7 +149,10 @@ class SearchContextProvider(ContextProvider):
                         continue
                     if len(content) > self._max_content_chars:
                         content = content[:self._max_content_chars] + "..."
-                    header = f"### [{title}]({link})" if link else f"### {title}"
+                    ref_idx += 1
+                    ref_key = f"[{ref_idx}]"
+                    self.reference_map[ref_key] = (title, link)
+                    header = f"### {ref_key} {title}"
                     parts.append(f"{header}\n{content}")
         except Exception as e:
             logger.error("[SearchContextProvider] Search failed in %.2fs: %s", time.time() - search_start, e)

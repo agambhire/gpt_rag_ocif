@@ -11,6 +11,7 @@ connection — no Azure AI Foundry Agent Service V2 dependency.  It provides:
 
 import asyncio
 import logging
+import re
 import time
 from typing import Optional
 
@@ -38,6 +39,21 @@ from connectors.openai_chat_client import OpenAIChatClient
 from connectors.search import acquire_obo_search_token
 from dependencies import get_config
 from openai import BadRequestError
+
+_REF_PATTERN = re.compile(r'\[(\d+)\]')
+
+
+def _replace_citation_refs(text: str, ref_map: dict[str, tuple[str, str]]) -> str:
+    """Replace [N] reference markers with [title](url) markdown links."""
+    def _replacer(match: re.Match) -> str:
+        ref_key = match.group(0)  # e.g., "[1]"
+        if ref_key in ref_map:
+            title, url = ref_map[ref_key]
+            if url:
+                return f"[{title}]({url})"
+            return title
+        return ref_key
+    return _REF_PATTERN.sub(_replacer, text)
 
 
 class MafLiteStrategy(BaseAgentStrategy):
@@ -338,17 +354,52 @@ class MafLiteStrategy(BaseAgentStrategy):
                 input_messages.append(ChatMessage(role="user", text=user_message))
                 logging.info("[MafLiteStrategy] history_messages: %d (total input: %d)", len(history), len(input_messages))
 
-                # Stream the agent response
+                # Stream the agent response with citation reference replacement
                 stream_start = time.time()
                 full_response = ""
+                ref_map = self._search_provider.reference_map if self._search_provider else {}
+                buffer = ""
+
                 async for chunk in agent.run_stream(
                     input_messages,
                     thread=thread,
                     options={"max_completion_tokens": self.max_completion_tokens, "reasoning_effort": self.reasoning_effort},
                 ):
                     if chunk.text:
-                        full_response += chunk.text
-                        yield chunk.text
+                        if ref_map:
+                            buffer += chunk.text
+                            # Find last '[' that might be an incomplete reference
+                            last_bracket = buffer.rfind('[')
+                            if last_bracket == -1:
+                                # No open bracket — safe to flush all
+                                processed = _replace_citation_refs(buffer, ref_map)
+                                full_response += processed
+                                yield processed
+                                buffer = ""
+                            else:
+                                close_bracket = buffer.find(']', last_bracket)
+                                if close_bracket != -1:
+                                    # Bracket is closed — flush through it
+                                    safe = buffer[:close_bracket + 1]
+                                    processed = _replace_citation_refs(safe, ref_map)
+                                    full_response += processed
+                                    yield processed
+                                    buffer = buffer[close_bracket + 1:]
+                                elif last_bracket > 0:
+                                    # Incomplete bracket — flush text before it
+                                    processed = _replace_citation_refs(buffer[:last_bracket], ref_map)
+                                    full_response += processed
+                                    yield processed
+                                    buffer = buffer[last_bracket:]
+                        else:
+                            full_response += chunk.text
+                            yield chunk.text
+
+                # Flush remaining buffer
+                if buffer:
+                    processed = _replace_citation_refs(buffer, ref_map)
+                    full_response += processed
+                    yield processed
                 logging.info("[MafLiteStrategy] agent_stream: %.2fs (response_len=%d)", time.time() - stream_start, len(full_response))
 
                 # Persist conversation history locally
