@@ -12,6 +12,7 @@ import ast
 import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from urllib.parse import unquote, urlparse
 
 from azure.identity.aio import AzureCliCredential, ManagedIdentityCredential, ChainedTokenCredential
 from azure.core.exceptions import HttpResponseError, ServiceRequestError
@@ -83,6 +84,9 @@ class BlobIndexerConfig:
     memory_safety_multiplier: float = 4.0  # estimated peak RAM = blob_size * multiplier
     memory_safety_threshold: float = 0.85  # use at most 85% of container memory limit
 
+    # Metadata container for source_title / source_url lookups
+    metadata_container: str = "documents-metadata"
+
     # Optional: allow base64 pass-through into chunker, if you change input later
     input_is_base64: bool = False
 
@@ -93,6 +97,7 @@ class BlobIndexerConfig:
             search_endpoint=app.get("SEARCH_SERVICE_QUERY_ENDPOINT", ""),
             storage_account_name=app.get("STORAGE_ACCOUNT_NAME", ""),
             source_container=app.get("DOCUMENTS_STORAGE_CONTAINER", "documents"),
+            metadata_container=app.get("DOCUMENTS_METADATA_CONTAINER", "documents-metadata"),
             jobs_log_container=app.get("JOBS_LOG_CONTAINER", "jobs"),
             blob_prefix=app.get("BLOB_PREFIX", ""),
             search_index_name=app.get("AI_SEARCH_INDEX_NAME", app.get("SEARCH_RAG_INDEX_NAME", "")),
@@ -194,6 +199,7 @@ class BlobStorageDocumentIndexer:
         self._credential: Optional[ChainedTokenCredential] = None
         self._blob_service: Optional[BlobServiceClient] = None
         self._search_client: Optional[AsyncSearchClient] = None
+        self._metadata_map: Dict[str, Dict[str, str]] = {}
 
     def _log_event(self, level: int, event: str, **fields: Any) -> None:
         """Emit structured JSON logs for KQL queries."""
@@ -229,6 +235,67 @@ class BlobStorageDocumentIndexer:
                 credential=self._credential,
                 api_version=_ELEVATED_API_VERSION,
             )
+
+    # ---------- Document metadata ----------
+    async def _load_document_metadata(self) -> Dict[str, Dict[str, str]]:
+        """Load source_title / source_url mappings from the metadata container.
+
+        Reads all JSON blobs from ``self.cfg.metadata_container``.  Each blob is
+        expected to contain a JSON array of objects with ``title`` and ``url``
+        fields.  The basename of the ``url`` (URL-decoded) is used as the lookup
+        key so it can be matched against blob names in the documents container.
+
+        Returns a dict: ``{decoded_filename: {"title": ..., "url": ...}}``.
+        """
+        await self._ensure_clients()
+        result: Dict[str, Dict[str, str]] = {}
+
+        try:
+            container = self._blob_service.get_container_client(self.cfg.metadata_container)
+            async for blob in container.list_blobs():
+                if not blob.name.endswith(".json"):
+                    continue
+                try:
+                    blob_client = container.get_blob_client(blob.name)
+                    download = await blob_client.download_blob()
+                    raw = await download.readall()
+                    entries = json.loads(raw)
+
+                    if not isinstance(entries, list):
+                        logging.warning(
+                            f"[{self.cfg.indexer_name}] metadata blob '{blob.name}' "
+                            "is not a JSON array; skipping"
+                        )
+                        continue
+
+                    for entry in entries:
+                        url = entry.get("url", "")
+                        title = entry.get("title", "")
+                        if not url:
+                            continue
+                        # Extract and decode the filename from the URL path
+                        parsed_path = urlparse(url).path
+                        filename = unquote(parsed_path.rsplit("/", 1)[-1])
+                        if filename:
+                            result[filename] = {"title": title, "url": url}
+                except Exception:
+                    logging.warning(
+                        f"[{self.cfg.indexer_name}] failed to read metadata blob '{blob.name}'",
+                        exc_info=True,
+                    )
+        except Exception:
+            logging.warning(
+                f"[{self.cfg.indexer_name}] could not load document metadata from "
+                f"container '{self.cfg.metadata_container}'; source_title/source_url "
+                "will be empty",
+                exc_info=True,
+            )
+
+        logging.info(
+            f"[{self.cfg.indexer_name}] Loaded document metadata for "
+            f"{len(result)} file(s) from '{self.cfg.metadata_container}'"
+        )
+        return result
 
     # ---------- Public entrypoint ----------
     async def run(self) -> None:
@@ -272,9 +339,13 @@ class BlobStorageDocumentIndexer:
         skipped_no_change = 0
         skipped_blocked = 0
 
+
         try:
             # ensure log containers exist (best-effort)
             await self._ensure_container(self.cfg.jobs_log_container)
+
+            # Load document metadata (source_title / source_url) from metadata container
+            self._metadata_map = await self._load_document_metadata()
 
             # Load current index snapshot for dedup/TS comparisons
             latest_map = await self._load_latest_index_state()
@@ -598,6 +669,12 @@ class BlobStorageDocumentIndexer:
             _timings: Dict[str, Any] = {"downloadSec": _download_secs}
             if self._should_stage_excel_rowwise(data):
                 _t_stage = time.monotonic()
+                # Look up source_title / source_url from metadata container
+                _blob_basename = os.path.basename(blob_name)
+                _meta_entry = self._metadata_map.get(_blob_basename, {})
+                _source_title = _meta_entry.get("title", "")
+                _source_url = _meta_entry.get("url", "")
+
                 total_chunks_uploaded = await self._replace_parent_docs_via_staging(
                     data=data,
                     parent_id=parent_id,
@@ -608,6 +685,8 @@ class BlobStorageDocumentIndexer:
                     security_user_ids=security_user_ids,
                     security_group_ids=security_group_ids,
                     rbac_scope=rbac_scope,
+                    source_title=_source_title,
+                    source_url=_source_url,
                 )
                 _timings["processingSec"] = round(time.monotonic() - _t_stage, 2)
             else:
@@ -652,6 +731,12 @@ class BlobStorageDocumentIndexer:
                 _compl_cost = round(((_compl_in_tokens / 1000) * _cost_per_1k_compl_in) + ((_compl_out_tokens / 1000) * _cost_per_1k_compl_out), 4)
                 _total_cost = round(_analysis_cost + _embed_cost + _compl_cost, 4)
 
+                # Look up source_title / source_url from metadata container
+                _blob_basename = os.path.basename(blob_name)
+                _meta_entry = self._metadata_map.get(_blob_basename, {})
+                _source_title = _meta_entry.get("title", "")
+                _source_url = _meta_entry.get("url", "")
+
                 # Convert chunks to search docs (lightweight mapping, no API calls)
                 all_docs = [
                     self._to_search_doc(
@@ -659,6 +744,8 @@ class BlobStorageDocumentIndexer:
                         security_user_ids=security_user_ids,
                         security_group_ids=security_group_ids,
                         rbac_scope=rbac_scope,
+                        source_title=_source_title,
+                        source_url=_source_url,
                     )
                     for chunk in all_chunks
                 ]
@@ -786,6 +873,8 @@ class BlobStorageDocumentIndexer:
         security_user_ids: Optional[List[str]] = None,
         security_group_ids: Optional[List[str]] = None,
         rbac_scope: str = "",
+        source_title: str = "",
+        source_url: str = "",
     ) -> Dict[str, Any]:
         # Azure Search key must be unique & stable per chunk
         chunk_id = int(chunk.get("chunk_id", 0))
@@ -806,9 +895,11 @@ class BlobStorageDocumentIndexer:
             "offset": int(chunk.get("offset", 0)),
             "length": int(chunk.get("length", len(chunk.get("content", "")))),
             "title": chunk.get("title", ""),
+            "source_title": source_title or chunk.get("source_title", ""),
             "category": chunk.get("category", ""),
             "filepath": chunk.get("filepath", parent_id),
             "url": chunk.get("url", file_url),
+            "source_url": source_url or chunk.get("source_url", ""),
             "summary": chunk.get("summary", ""),
             "relatedImages": chunk.get("relatedImages", []),
             "relatedFiles": chunk.get("relatedFiles", []),
@@ -929,6 +1020,8 @@ class BlobStorageDocumentIndexer:
         security_user_ids: Optional[List[str]] = None,
         security_group_ids: Optional[List[str]] = None,
         rbac_scope: str = "",
+        source_title: str = "",
+        source_url: str = "",
     ):
         """Yield AI Search docs one-by-one (chunk -> doc), avoiding large in-memory lists."""
         for chunk in self._iter_chunks_for_data(data):
@@ -941,6 +1034,8 @@ class BlobStorageDocumentIndexer:
                 security_user_ids=security_user_ids,
                 security_group_ids=security_group_ids,
                 rbac_scope=rbac_scope,
+                source_title=source_title,
+                source_url=source_url,
             )
 
     async def _replace_parent_docs_stream(self, parent_id: str, docs_iter):
@@ -975,6 +1070,8 @@ class BlobStorageDocumentIndexer:
         security_user_ids: Optional[List[str]] = None,
         security_group_ids: Optional[List[str]] = None,
         rbac_scope: str = "",
+        source_title: str = "",
+        source_url: str = "",
     ) -> int:
         """Stage docs in Blob then upload in batches, cleaning staging prefix afterwards.
 
@@ -1032,6 +1129,8 @@ class BlobStorageDocumentIndexer:
                 security_user_ids=security_user_ids,
                 security_group_ids=security_group_ids,
                 rbac_scope=rbac_scope,
+                source_title=source_title,
+                source_url=source_url,
             ),
         )
         staged_count = 0
