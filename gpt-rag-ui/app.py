@@ -130,7 +130,8 @@ def resolve_reference_href(raw_href: str) -> Optional[str]:
         return None
 
     if not USE_BLOB_REFERENCE_RESOLUTION:
-        return href
+        # Encode spaces so markdown renders the full URL as a clickable link
+        return href.replace(" ", "%20")
 
     # Blob resolution mode
     split_href = urllib.parse.urlsplit(href)
