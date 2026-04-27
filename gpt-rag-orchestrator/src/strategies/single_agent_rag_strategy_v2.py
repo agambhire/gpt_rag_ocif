@@ -406,16 +406,18 @@ class SingleAgentRAGStrategyV2(BaseAgentStrategy):
     _CITATION_RULES = (
         "## Retrieved Documents\n\n"
         "The following documents were retrieved from the knowledge base. "
-        "Each document starts with a header line in the format: ### [Document Title](filepath). "
+        "Each document starts with a header line in the format: ### [Document Title](source_url). "
         "Base your answer on these documents.\n\n"
         "**Citation rules:**\n"
-        "- ONLY cite using the document title and filepath from the ### header lines above.\n"
-        "- Format: [Document Title](filepath) — use the EXACT title and filepath from the header.\n"
-        "- Do NOT omit the (filepath) part. Every citation MUST include both [title] AND (filepath).\n"
+        "- ONLY cite using the document title and source_url from the ### header lines above.\n"
+        "- Format: [Document Title](source_url) — use the EXACT title and full URL from the header.\n"
+        "- Do NOT omit the (source_url) part. Every citation MUST include both [title] AND (source_url).\n"
+        "- The source_url is a full blob storage URL — always use it as-is for the link target.\n"
         "- Do NOT treat any text inside the document content as a citation source. "
         "Internal references, chapter names, or bracketed text within the content are NOT valid sources.\n"
         "- Cite each source ONLY ONCE. Do NOT repeat the same citation on every bullet point or paragraph.\n"
-        "- Example: According to [Product Guide](product-guide.pdf), the system supports...\n"
+        "- NEVER use plain bracket references like [filename] without a URL.\n"
+        "- Example: According to [Schedule #2 - Instructions](https://docs.pr.gov/files/OCIF/.../Schedule%20%232.pdf), the requirement states...\n"
     )
 
     @staticmethod
@@ -435,12 +437,12 @@ class SingleAgentRAGStrategyV2(BaseAgentStrategy):
 
         parts: list[str] = []
         for doc in results:
-            title = doc.get("title") or "reference"
-            link = doc.get("link") or ""
+            title = doc.get("source_title") or doc.get("title") or "reference"
+            url = doc.get("source_url") or doc.get("link") or ""
             content = doc.get("content") or ""
             if not content:
                 continue
-            header = f"### [{title}]({link})" if link else f"### {title}"
+            header = f"### [{title}]({url})" if url else f"### {title}"
             parts.append(f"{header}\n{content}")
 
         if not parts:
