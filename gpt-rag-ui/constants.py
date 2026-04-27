@@ -15,7 +15,7 @@ SUPPORTED_EXTENSIONS = [
 ]
 
 REFERENCE_REGEX = re.compile(
-    r'\[([^\]]+)\]\(([^)]+\.(?:' + '|'.join(SUPPORTED_EXTENSIONS) + r'))\)',
+    r'\[([^\]]+)\]\(([^)]+)\)',
     re.IGNORECASE
 )
 
