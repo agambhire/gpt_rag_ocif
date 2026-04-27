@@ -24,15 +24,18 @@ logger = logging.getLogger(__name__)
 _CONTEXT_PROMPT = (
     "## Retrieved Documents\n\n"
     "The following documents were retrieved from the knowledge base. "
-    "Each document starts with a header line in the format: ### [Document Title](filepath). "
+    "Each document starts with a header line in the format: ### [Document Title](source_url). "
     "Base your answer on these documents.\n\n"
     "**Citation rules:**\n"
-    "- ONLY cite using the document title and filepath from the ### header lines above.\n"
-    "- Format: [Document Title](filepath) — use the EXACT title and filepath from the header.\n"
+    "- ONLY cite using the document title and source_url from the ### header lines above.\n"
+    "- Format: [Document Title](source_url) — use the EXACT title and full URL from the header.\n"
+    "- The source_url is a full blob storage URL — always use it as-is for the link target.\n"
+    "- Do NOT omit the (source_url) part. Every citation MUST include both [title] AND (source_url).\n"
     "- Do NOT treat any text inside the document content as a citation source. "
     "Internal references, chapter names, or bracketed text within the content are NOT valid sources.\n"
     "- Cite each source ONLY ONCE. Do NOT repeat the same citation on every bullet point or paragraph.\n"
-    "- Example: According to [Product Guide](product-guide.pdf), the system supports...\n\n"
+    "- NEVER use plain bracket references like [filename] without a full URL.\n"
+    "- Example: According to [Schedule #2 - Instructions](https://docs.pr.gov/files/OCIF/.../Schedule%20%232.pdf), the requirement states...\n\n"
     "If the user's message is a greeting or small talk, ignore these documents and respond naturally."
 )
 
@@ -90,7 +93,7 @@ class SearchContextProvider(ContextProvider):
         search_params: dict[str, Any] = {
             "search_text": query,
             "top": self._top_k,
-            "select": ["id", "content", "title", "filepath", "url"],
+            "select": ["id", "content", "title", "filepath", "url", "source_title", "source_url"],
         }
 
         # Hybrid search: add vector query when embedding function is available
@@ -138,8 +141,8 @@ class SearchContextProvider(ContextProvider):
 
                 parts: list[str] = []
                 async for doc in results:
-                    title = doc.get("title") or doc.get("filepath") or doc.get("id") or "Unknown"
-                    link = doc.get("filepath") or doc.get("url") or ""
+                    title = doc.get("source_title") or doc.get("title") or doc.get("filepath") or doc.get("id") or "Unknown"
+                    link = doc.get("source_url") or doc.get("url") or doc.get("filepath") or ""
                     content = doc.get("content") or ""
                     if not content:
                         continue
