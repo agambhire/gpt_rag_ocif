@@ -131,11 +131,13 @@ def resolve_reference_href(raw_href: str) -> Optional[str]:
 
     if not USE_BLOB_REFERENCE_RESOLUTION:
         # Properly encode the URL so markdown renders it as a single clickable link.
-        # Use urllib.parse to handle spaces and other unsafe characters while
-        # preserving the URL structure (scheme, host, already-encoded sequences).
+        # First decode any existing percent-encoding to avoid double-encoding
+        # (e.g. %20 becoming %2520), then re-encode uniformly.
         parts = urllib.parse.urlsplit(href)
-        encoded_path = urllib.parse.quote(parts.path, safe='/:@!$&\'()*+,;=-._~')
-        encoded_query = urllib.parse.quote(parts.query, safe='/:@!$&\'()*+,;=-._~?')
+        decoded_path = urllib.parse.unquote(parts.path)
+        decoded_query = urllib.parse.unquote(parts.query)
+        encoded_path = urllib.parse.quote(decoded_path, safe='/:@!$&\'()*+,;=-._~')
+        encoded_query = urllib.parse.quote(decoded_query, safe='/:@!$&\'()*+,;=-._~?=')
         encoded = urllib.parse.urlunsplit((
             parts.scheme,
             parts.netloc,
