@@ -1,5 +1,6 @@
 import logging
 import json
+import re
 import time
 import traceback
 from typing import Optional, Any, Dict, List, cast, AsyncIterator
@@ -41,6 +42,21 @@ from openai import BadRequestError
 # Module-level singleton for AgentsClient — eliminates per-request TCP/TLS + token overhead
 _agents_client: Optional[AgentsClient] = None
 _cached_agent: Optional[Any] = None  # Pre-created/fetched agent reused across all requests
+
+_REF_PATTERN = re.compile(r'\[(\d+)\]')
+
+
+def _replace_citation_refs(text: str, ref_map: dict[str, tuple[str, str]]) -> str:
+    """Replace [N] reference markers with [title](url) markdown links."""
+    def _replacer(match: re.Match) -> str:
+        ref_key = match.group(0)  # e.g., "[1]"
+        if ref_key in ref_map:
+            title, url = ref_map[ref_key]
+            if url:
+                return f"[{title}]({url})"
+            return title
+        return ref_key
+    return _REF_PATTERN.sub(_replacer, text)
 
 
 async def prewarm_agents_client() -> None:
@@ -165,6 +181,7 @@ class SingleAgentRAGStrategyV2(BaseAgentStrategy):
         self.existing_agent_id = self.cfg.get("AGENT_ID", "") or None
         self.tools_list = []
         self.tool_resources = {}
+        self._ref_map: dict[str, tuple[str, str]] = {}
 
         aisearch_enabled = self.cfg.get("SEARCH_RETRIEVAL_ENABLED", True, type=bool)
         if not aisearch_enabled:
@@ -297,6 +314,7 @@ class SingleAgentRAGStrategyV2(BaseAgentStrategy):
         tool_outputs_to_submit = None
         run_id_to_submit = None
         first_token = False
+        citation_buffer = ""
         async for event_type, event_data, raw in stream:
             
             if event_type == "thread.message.delta":
@@ -330,7 +348,28 @@ class SingleAgentRAGStrategyV2(BaseAgentStrategy):
                     chunk = process_bing_citations(event_data)
                     
                 if chunk:
-                    yield chunk
+                    # Apply citation reference replacement with buffering
+                    ref_map = self._ref_map
+                    if ref_map:
+                        citation_buffer += chunk
+                        last_bracket = citation_buffer.rfind('[')
+                        if last_bracket == -1:
+                            processed = _replace_citation_refs(citation_buffer, ref_map)
+                            yield processed
+                            citation_buffer = ""
+                        else:
+                            close_bracket = citation_buffer.find(']', last_bracket)
+                            if close_bracket != -1:
+                                safe = citation_buffer[:close_bracket + 1]
+                                processed = _replace_citation_refs(safe, ref_map)
+                                yield processed
+                                citation_buffer = citation_buffer[close_bracket + 1:]
+                            elif last_bracket > 0:
+                                processed = _replace_citation_refs(citation_buffer[:last_bracket], ref_map)
+                                yield processed
+                                citation_buffer = citation_buffer[last_bracket:]
+                    else:
+                        yield chunk
 
             elif event_type == "thread.run.requires_action":
                 logging.info(f"[Agent Flow V2] Run requires action. Executing tools natively...")
@@ -343,7 +382,9 @@ class SingleAgentRAGStrategyV2(BaseAgentStrategy):
                             args = json.loads(tc.function.arguments)
                             t0 = time.time()
                             result = await self.search_client.search_knowledge_base(**args)
-                            result_str = self._format_search_results(result)
+                            result_str, new_ref_map = self._format_search_results(result)
+                            if new_ref_map:
+                                self._ref_map.update(new_ref_map)
                             logging.info(f"[Agent Flow V2] Retrieval tool executed in {time.time()-t0:.2f}s")
                             tool_outputs.append(ToolOutput(
                                 tool_call_id=tc.id,
@@ -403,55 +444,69 @@ class SingleAgentRAGStrategyV2(BaseAgentStrategy):
                 async for chunk in self._process_stream(agents_client, s2, thread_id):
                     yield chunk
 
+        # Flush remaining citation buffer
+        if citation_buffer:
+            ref_map = self._ref_map
+            if ref_map:
+                processed = _replace_citation_refs(citation_buffer, ref_map)
+                yield processed
+            else:
+                yield citation_buffer
+
     _CITATION_RULES = (
         "## Retrieved Documents\n\n"
         "The following documents were retrieved from the knowledge base. "
-        "Each document starts with a header line in the format: ### [Document Title](source_url). "
+        "Each document starts with a header line: ### [N] Document Title (where N is the reference number). "
         "Base your answer on these documents.\n\n"
         "**Citation rules:**\n"
-        "- ONLY cite using the document title and source_url from the ### header lines above.\n"
-        "- Format: [Document Title](source_url) — use the EXACT title and full URL from the header.\n"
-        "- Do NOT omit the (source_url) part. Every citation MUST include both [title] AND (source_url).\n"
-        "- The source_url is a full blob storage URL — always use it as-is for the link target.\n"
+        "- When citing a source, use ONLY the reference number in square brackets: [1], [2], etc.\n"
+        "- Do NOT include document titles or URLs in your citations — just the reference number.\n"
+        "- The system will automatically convert [1] into a proper clickable link with the correct URL.\n"
+        "- Cite each source ONLY ONCE. Do NOT repeat the same citation on every bullet point or paragraph.\n"
         "- Do NOT treat any text inside the document content as a citation source. "
         "Internal references, chapter names, or bracketed text within the content are NOT valid sources.\n"
-        "- Cite each source ONLY ONCE. Do NOT repeat the same citation on every bullet point or paragraph.\n"
-        "- NEVER use plain bracket references like [filename] without a URL.\n"
-        "- Example: According to [Schedule #2 - Instructions](https://docs.pr.gov/files/OCIF/.../Schedule%20%232.pdf), the requirement states...\n"
+        "- Example: The regulation requires quarterly reporting [1] and annual audits [2].\n"
     )
 
     @staticmethod
-    def _format_search_results(raw_result) -> str:
-        """Format search results as markdown with [title](link) headers.
+    def _format_search_results(raw_result) -> tuple[str, dict[str, tuple[str, str]]]:
+        """Format search results as markdown with numbered reference headers.
 
-        Mirrors the format used by SearchContextProvider so the model
-        sees citation examples and reproduces them naturally.
+        Returns (formatted_text, reference_map) where reference_map maps
+        "[N]" to (title, url) so the caller can post-process LLM output.
         """
+        ref_map: dict[str, tuple[str, str]] = {}
         try:
             data = json.loads(raw_result) if isinstance(raw_result, str) else raw_result
             results = data.get("results", [])
             if not results:
-                return raw_result if isinstance(raw_result, str) else json.dumps(raw_result)
+                fallback = raw_result if isinstance(raw_result, str) else json.dumps(raw_result)
+                return fallback, ref_map
         except (json.JSONDecodeError, AttributeError):
-            return raw_result if isinstance(raw_result, str) else json.dumps(raw_result)
+            fallback = raw_result if isinstance(raw_result, str) else json.dumps(raw_result)
+            return fallback, ref_map
 
         parts: list[str] = []
-        for doc in results:
+        for idx, doc in enumerate(results, start=1):
             title = doc.get("source_title") or doc.get("title") or "reference"
             url = doc.get("source_url") or doc.get("link") or ""
             content = doc.get("content") or ""
             if not content:
                 continue
-            header = f"### [{title}]({url})" if url else f"### {title}"
+            ref_key = f"[{idx}]"
+            ref_map[ref_key] = (title, url)
+            header = f"### {ref_key} {title}"
             parts.append(f"{header}\n{content}")
 
         if not parts:
-            return raw_result if isinstance(raw_result, str) else json.dumps(raw_result)
+            fallback = raw_result if isinstance(raw_result, str) else json.dumps(raw_result)
+            return fallback, ref_map
 
-        return (
+        formatted = (
             SingleAgentRAGStrategyV2._CITATION_RULES + "\n\n"
             + "\n\n---\n\n".join(parts)
         )
+        return formatted, ref_map
 
     async def _stream_agent(self, user_message: str):
         """
