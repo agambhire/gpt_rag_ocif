@@ -68,12 +68,9 @@ class OrchestratorRequest(BaseModel):
         json_schema_extra = {
             "examples": [
                 {
-                    "summary": "Ask a question",
-                    "value": {
-                        "ask": "How often are performance reviews conducted at Contoso Electronics?",
-                        "conversation_id": "8db90ba1-aa03-494e-a46e-efddf7cb4277",
-                        "user_context": {}
-                    },
+                    "ask": "How often are performance reviews conducted at Contoso Electronics?",
+                    "conversation_id": "",
+                    "user_context": {}
                 },
                 {
                     "summary": "Submit feedback",
