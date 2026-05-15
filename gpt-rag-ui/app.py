@@ -17,7 +17,7 @@ from feedback import register_feedback_handlers,create_feedback_actions
 from dependencies import get_config
 from connectors import BlobClient
 
-from constants import APPLICATION_INSIGHTS_CONNECTION_STRING, APP_NAME, UUID_REGEX, REFERENCE_REGEX, TERMINATE_TOKEN
+from constants import APPLICATION_INSIGHTS_CONNECTION_STRING, APP_NAME, UUID_REGEX, REFERENCE_REGEX, TERMINATE_TOKEN, DISCLAIMER_TEXT
 from telemetry import Telemetry
 from opentelemetry.trace import SpanKind
 from chainlit.types import ThreadDict
@@ -612,7 +612,9 @@ async def handle_message(message: cl.Message):
         if SHOW_STATISTICS:
             elapsed = time.time() - response_start_time
             final_text += f"\n\n*\u23f1 {elapsed:.2f}s*"
-        response_msg.content = final_text
+
+        # Append disclaimer below the response content and source links
+        response_msg.content = final_text + "\n\n" + DISCLAIMER_TEXT
         await response_msg.update()
 
         logger.info(

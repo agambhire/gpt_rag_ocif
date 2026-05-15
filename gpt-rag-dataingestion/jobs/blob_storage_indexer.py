@@ -270,14 +270,25 @@ class BlobStorageDocumentIndexer:
 
                     for entry in entries:
                         url = entry.get("url", "")
-                        title = entry.get("title", "")
                         if not url:
                             continue
-                        # Extract and decode the filename from the URL path
-                        parsed_path = urlparse(url).path
-                        filename = unquote(parsed_path.rsplit("/", 1)[-1])
-                        if filename:
-                            result[filename] = {"title": title, "url": url}
+                        
+                        # Detect file type based on blob name
+                        is_website_file = "website" in blob.name.lower()
+                        
+                        if is_website_file:
+                            # Website URLs file: extract id and url
+                            entry_id = entry.get("id", "")
+                            if entry_id:
+                                result[entry_id] = {"title": entry_id, "url": url}
+                        else:
+                            # Document URLs file: extract title and url (default behavior)
+                            title = entry.get("title", "")
+                            # Extract and decode the filename from the URL path
+                            parsed_path = urlparse(url).path
+                            filename = unquote(parsed_path.rsplit("/", 1)[-1])
+                            if filename:
+                                result[filename] = {"title": title, "url": url}
                 except Exception:
                     logging.warning(
                         f"[{self.cfg.indexer_name}] failed to read metadata blob '{blob.name}'",

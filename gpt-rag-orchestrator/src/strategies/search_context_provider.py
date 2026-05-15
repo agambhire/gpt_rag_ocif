@@ -93,7 +93,7 @@ class SearchContextProvider(ContextProvider):
         search_params: dict[str, Any] = {
             "search_text": query,
             "top": self._top_k,
-            "select": ["id", "content", "title", "filepath", "url", "source_title", "source_url"],
+            "select": ["id", "content", "title", "filepath", "url", "source_title", "source_url", "metadata_storage_name"],
         }
 
         # Hybrid search: add vector query when embedding function is available
@@ -141,14 +141,23 @@ class SearchContextProvider(ContextProvider):
 
                 parts: list[str] = []
                 async for doc in results:
-                    title = doc.get("source_title") or doc.get("title") or doc.get("filepath") or doc.get("id") or "Unknown"
-                    link = doc.get("source_url") or doc.get("url") or doc.get("filepath") or ""
+                    filepath = doc.get("filepath") or ""
+                    source_title = doc.get("source_title") or "Unknown"
+                    source_url = doc.get("source_url") or ""
+                    metadata_storage_name = doc.get("metadata_storage_name") or ""
                     content = doc.get("content") or ""
+                    logger.info(
+                        "[SearchContextProvider] Retrieved chunk: source_title=%s source_url=%s metadata_storage_name=%s id=%s",
+                        source_title,
+                        source_url,
+                        metadata_storage_name,
+                        doc.get("id"),
+                    )
                     if not content:
                         continue
                     if len(content) > self._max_content_chars:
                         content = content[:self._max_content_chars] + "..."
-                    header = f"### [{title}]({link})" if link else f"### {title}"
+                    header = f"### [{source_title}]({source_url})" if source_url else f"### {source_title}"
                     parts.append(f"{header}\n{content}")
         except Exception as e:
             logger.error("[SearchContextProvider] Search failed in %.2fs: %s", time.time() - search_start, e)
