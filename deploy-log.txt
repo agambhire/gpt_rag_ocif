@@ -1,0 +1,8 @@
+
+ERROR: no project exists; to create a new project, run `azd init`
+WARNING: your version of azd is out of date, you have 1.23.15 and the latest stable version is 1.25.2
+
+To update to the latest version, run:
+powershell -ex AllSigned -c "Invoke-RestMethod 'https://aka.ms/install-azd.ps1' | Invoke-Expression"
+
+If the install script was run with custom parameters, ensure that the same parameters are used for the upgrade. For advanced install instructions, see: https://aka.ms/azd/upgrade/windows

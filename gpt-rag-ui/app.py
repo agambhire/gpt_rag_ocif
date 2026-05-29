@@ -606,15 +606,45 @@ async def handle_message(message: cl.Message):
             response_msg.actions = create_feedback_actions(
                 message.id, conversation_id, message.content
             )
-        final_text = replace_source_reference_links(
-            full_text.replace(TERMINATE_TOKEN, ""), references
-        )
-        if SHOW_STATISTICS:
-            elapsed = time.time() - response_start_time
-            final_text += f"\n\n*\u23f1 {elapsed:.2f}s*"
+        # final_text = replace_source_reference_links(
+        #     full_text.replace(TERMINATE_TOKEN, ""), references
+        # )
+        # if SHOW_STATISTICS:
+        #     elapsed = time.time() - response_start_time
+        #     final_text += f"\n\n*\u23f1 {elapsed:.2f}s*"
 
-        # Append disclaimer below the response content and source links
-        response_msg.content = final_text + "\n\n" + DISCLAIMER_TEXT
+        # # Append disclaimer below the response content and source links
+        # response_msg.content = final_text + "\n\n" + DISCLAIMER_TEXT
+        # await response_msg.update()
+        final_text = replace_source_reference_links(
+        full_text.replace(TERMINATE_TOKEN, ""), references
+        ).strip()
+
+        # Detect truly empty responses
+        is_empty_response = (
+            not final_text
+            or final_text.isspace()
+            or final_text == DISCLAIMER_TEXT.strip()
+        )
+
+        if is_empty_response:
+            response_msg.content = (
+                "No sources were found to answer your question. "
+                "Please try rephrasing your question."
+            )
+        else:
+            if SHOW_STATISTICS:
+                elapsed = time.time() - response_start_time
+                final_text += f"\n\n*\u23f1 {elapsed:.2f}s*"
+
+            # Show disclaimer only when actual answer exists
+            logger.warning(
+                "Empty orchestrator response detected: conversation=%s question_id=%s",
+                conversation_id,
+                message.id,
+            )   
+            response_msg.content = final_text + "\n\n" + DISCLAIMER_TEXT
+
         await response_msg.update()
 
         logger.info(

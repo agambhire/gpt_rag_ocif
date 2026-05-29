@@ -1,0 +1,410 @@
+
+?? Docker Desktop service status: Stopped
+?? Checking Docker availability.
+? Docker is available.
+
+? Using APP_CONFIG_ENDPOINT from environment: https://appcs-lejbubzk5gqf2.azconfig.io
+? APP_CONFIG_ENDPOINT: https://appcs-lejbubzk5gqf2.azconfig.io
+
+? App Configuration name: appcs-lejbubzk5gqf2
+
+?? Checking Azure CLI login and subscription.
+? Azure CLI is logged in.
+
+?? Loading App Configuration settings (label=gpt-rag).
+
+???  Retrieving 'CONTAINER_REGISTRY_NAME' (label=gpt-rag) from App Configuration.
+???  Retrieving 'CONTAINER_REGISTRY_LOGIN_SERVER' (label=gpt-rag) from App Configuration.
+???  Retrieving 'SUBSCRIPTION_ID' (label=gpt-rag) from App Configuration.
+???  Retrieving 'AZURE_RESOURCE_GROUP' (label=gpt-rag) from App Configuration.
+???  Retrieving 'RESOURCE_TOKEN' (label=gpt-rag) from App Configuration.
+???  Retrieving 'DATA_INGEST_APP_NAME' (label=gpt-rag) from App Configuration.
+? All App Configuration values retrieved:
+   CONTAINER_REGISTRY_NAME = crlejbubzk5gqf2
+   CONTAINER_REGISTRY_LOGIN_SERVER = crlejbubzk5gqf2.azurecr.io
+   AZURE_RESOURCE_GROUP = RG-AI-OCIF
+   DATA_INGEST_APP_NAME = ca-lejbubzk5gqf2-dataingest
+
+?? Logging into ACR (crlejbubzk5gqf2 in RG-AI-OCIF).
+Login Succeeded
+? Logged into ACR.
+
+Defining tag...
+???  Building Docker image.
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 828B 0.0s done
+#1 DONE 0.1s
+
+#2 [internal] load metadata for mcr.microsoft.com/devcontainers/python:3.12-bookworm
+#2 DONE 0.2s
+
+#3 [internal] load metadata for docker.io/library/node:20-slim
+#3 DONE 0.3s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 139B 0.0s done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 DONE 0.0s
+
+#6 [stage-1 1/6] FROM mcr.microsoft.com/devcontainers/python:3.12-bookworm@sha256:4ace5266fed54e0e440d7b5142008684e305e5d456c8136f1bae5742139a95dc
+#6 resolve mcr.microsoft.com/devcontainers/python:3.12-bookworm@sha256:4ace5266fed54e0e440d7b5142008684e305e5d456c8136f1bae5742139a95dc
+#6 resolve mcr.microsoft.com/devcontainers/python:3.12-bookworm@sha256:4ace5266fed54e0e440d7b5142008684e305e5d456c8136f1bae5742139a95dc 0.2s done
+#6 DONE 0.2s
+
+#7 [frontend-build 1/6] FROM docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+#7 resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0
+#7 resolve docker.io/library/node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 0.2s done
+#7 DONE 0.2s
+
+#5 [internal] load build context
+#5 transferring context: 10.39kB 0.0s done
+#5 DONE 0.1s
+
+#8 [frontend-build 3/6] COPY frontend/package*.json ./frontend/
+#8 CACHED
+
+#9 [frontend-build 4/6] RUN cd frontend && npm ci
+#9 CACHED
+
+#10 [frontend-build 5/6] COPY frontend/ ./frontend/
+#10 CACHED
+
+#11 [frontend-build 2/6] WORKDIR /build
+#11 CACHED
+
+#12 [frontend-build 6/6] RUN cd frontend && npm run build
+#12 CACHED
+
+#13 [stage-1 3/6] COPY requirements.txt .
+#13 CACHED
+
+#14 [stage-1 2/6] WORKDIR /app
+#14 CACHED
+
+#15 [stage-1 4/6] RUN pip install --upgrade pip &&     pip install -r requirements.txt
+#15 CACHED
+
+#16 [stage-1 5/6] COPY . .
+#16 DONE 0.5s
+
+#17 [stage-1 6/6] COPY --from=frontend-build /build/static ./static
+#17 DONE 0.3s
+
+#18 exporting to image
+#18 exporting layers
+#18 exporting layers 0.8s done
+#18 exporting manifest sha256:587980ebf35eab925052cd4d1fc5baae12bac035010d081b561f20945f394ebb 0.1s done
+#18 exporting config sha256:dea5ffa6ae9209cb608de782aca748f7ce36942e81d88be3562d778c2391b519
+#18 exporting config sha256:dea5ffa6ae9209cb608de782aca748f7ce36942e81d88be3562d778c2391b519 0.1s done
+#18 exporting attestation manifest sha256:26dae193ef37e4e6c5ed018d4577b46f0a38b9212cb9623262d2f6a8713f8738
+#18 exporting attestation manifest sha256:26dae193ef37e4e6c5ed018d4577b46f0a38b9212cb9623262d2f6a8713f8738 0.2s done
+#18 exporting manifest list sha256:bee1282b37c968b119ed3d802205a636cf5a8e6bb270d5863d7a6d890d3038dc
+#18 exporting manifest list sha256:bee1282b37c968b119ed3d802205a636cf5a8e6bb270d5863d7a6d890d3038dc 0.1s done
+#18 naming to crlejbubzk5gqf2.azurecr.io/azure-gpt-rag/data-ingestion:76ced0c done
+#18 unpacking to crlejbubzk5gqf2.azurecr.io/azure-gpt-rag/data-ingestion:76ced0c
+#18 unpacking to crlejbubzk5gqf2.azurecr.io/azure-gpt-rag/data-ingestion:76ced0c 0.3s done
+#18 DONE 1.6s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/u1gibzfdhqm9b9w6w3nt0ik3c
+? Docker build succeeded.
+
+?? Pushing image.
+The push refers to repository [crlejbubzk5gqf2.azurecr.io/azure-gpt-rag/data-ingestion]
+369c37c1d622: Waiting
+d04623d90d6b: Waiting
+74bfab802555: Waiting
+d055cea50c88: Waiting
+0869e5c4dac5: Waiting
+752e495e83ad: Waiting
+6a9eff47d41b: Waiting
+ba1051446622: Waiting
+0dc6dabc31da: Waiting
+43f76dd3487a: Waiting
+d03054f4b9b6: Waiting
+e3da6fce7f9e: Waiting
+8b131b42eb78: Waiting
+d0b1bb2b20d1: Waiting
+cca12010f35b: Waiting
+d01b284e0345: Waiting
+6e6a7706c0a4: Waiting
+9104793a826a: Waiting
+41f39932db5e: Waiting
+862a5c31aab3: Waiting
+e257249cab47: Waiting
+25896fc79047: Waiting
+a35ea2ce5229: Waiting
+f998b1bbcc7c: Waiting
+a38666e026a9: Waiting
+5ad935416cca: Waiting
+d0b1bb2b20d1: Waiting
+cca12010f35b: Waiting
+d01b284e0345: Waiting
+6e6a7706c0a4: Waiting
+9104793a826a: Waiting
+41f39932db5e: Waiting
+862a5c31aab3: Waiting
+e257249cab47: Waiting
+25896fc79047: Waiting
+a35ea2ce5229: Waiting
+f998b1bbcc7c: Waiting
+a38666e026a9: Waiting
+5ad935416cca: Waiting
+369c37c1d622: Waiting
+d04623d90d6b: Waiting
+74bfab802555: Waiting
+d055cea50c88: Waiting
+0869e5c4dac5: Waiting
+752e495e83ad: Waiting
+6a9eff47d41b: Waiting
+ba1051446622: Waiting
+0dc6dabc31da: Waiting
+43f76dd3487a: Waiting
+d03054f4b9b6: Waiting
+e3da6fce7f9e: Waiting
+8b131b42eb78: Waiting
+d055cea50c88: Waiting
+0869e5c4dac5: Layer already exists
+752e495e83ad: Layer already exists
+6a9eff47d41b: Layer already exists
+ba1051446622: Waiting
+0dc6dabc31da: Waiting
+43f76dd3487a: Layer already exists
+d03054f4b9b6: Waiting
+e3da6fce7f9e: Layer already exists
+8b131b42eb78: Layer already exists
+d0b1bb2b20d1: Layer already exists
+cca12010f35b: Layer already exists
+d01b284e0345: Layer already exists
+9104793a826a: Layer already exists
+41f39932db5e: Layer already exists
+862a5c31aab3: Layer already exists
+e257249cab47: Layer already exists
+25896fc79047: Layer already exists
+a35ea2ce5229: Waiting
+f998b1bbcc7c: Layer already exists
+a38666e026a9: Layer already exists
+5ad935416cca: Waiting
+369c37c1d622: Layer already exists
+d04623d90d6b: Layer already exists
+6e6a7706c0a4: Pushed
+5ad935416cca: Layer already exists
+d055cea50c88: Layer already exists
+ba1051446622: Layer already exists
+0dc6dabc31da: Layer already exists
+d03054f4b9b6: Layer already exists
+a35ea2ce5229: Pushed
+74bfab802555: Pushed
+76ced0c: digest: sha256:bee1282b37c968b119ed3d802205a636cf5a8e6bb270d5863d7a6d890d3038dc size: 856
+? Image pushed.
+
+?? Updating container app registry.
+WARNING: Updating existing registry.
+WARNING: System identity is already assigned to containerapp
+
+/ Running ..
+| Running ..
+\ Running ..
+- Running ..
+/ Running ..
+| Running ..
+\ Running ..
+- Running ..
+[
+  {
+    "identity": "system",
+    "passwordSecretRef": "",
+    "server": "crlejbubzk5gqf2.azurecr.io",
+    "username": ""
+  }
+]
+? Container app registry updated.
+?? Updating container app.
+[K
+/ Running ..
+| Running ..
+\ Running ..
+- Running ..
+/ Running ..
+| Running ..
+\ Running ..
+{
+  "id": "/subscriptions/9f74cf73-75c3-4d5a-9c9b-9627c016e375/resourceGroups/RG-AI-OCIF/providers/Microsoft.App/containerapps/ca-lejbubzk5gqf2-dataingest",
+  "identity": {
+    "principalId": "e9aeab68-ff3b-4cf9-acb4-75e481e78930",
+    "tenantId": "9cfab288-0e2b-490a-8a46-1efb4bf9d544",
+    "type": "SystemAssigned"
+  },
+  "location": "East US",
+  "name": "ca-lejbubzk5gqf2-dataingest",
+  "properties": {
+    "configuration": {
+      "activeRevisionsMode": "Single",
+      "dapr": {
+        "appHealth": null,
+        "appId": "dataingest",
+        "appPort": 8080,
+        "appProtocol": "http",
+        "enableApiLogging": false,
+        "enabled": true,
+        "httpMaxRequestSize": null,
+        "httpReadBufferSize": null,
+        "logLevel": "info",
+        "maxConcurrency": null
+      },
+      "identitySettings": [],
+      "ingress": {
+        "additionalPortMappings": null,
+        "allowInsecure": false,
+        "clientCertificateMode": "Ignore",
+        "corsPolicy": null,
+        "customDomains": null,
+        "exposedPort": 0,
+        "external": true,
+        "fqdn": "ca-lejbubzk5gqf2-dataingest.nicebush-2b45afe7.eastus.azurecontainerapps.io",
+        "ipSecurityRestrictions": null,
+        "stickySessions": {
+          "affinity": "none"
+        },
+        "targetPort": 8080,
+        "traffic": [
+          {
+            "label": "label-1",
+            "latestRevision": true,
+            "weight": 100
+          }
+        ],
+        "transport": "Auto"
+      },
+      "maxInactiveRevisions": 0,
+      "registries": [
+        {
+          "identity": "system",
+          "passwordSecretRef": "",
+          "server": "crlejbubzk5gqf2.azurecr.io",
+          "username": ""
+        }
+      ],
+      "runtime": null,
+      "secrets": null,
+      "service": null
+    },
+    "customDomainVerificationId": "4FEA17BCFBC16301545E55343F65ACC8B4C19792210DC809DD9C7962DA9EB167",
+    "delegatedIdentities": [],
+    "environmentId": "/subscriptions/9f74cf73-75c3-4d5a-9c9b-9627c016e375/resourceGroups/RG-AI-OCIF/providers/Microsoft.App/managedEnvironments/cae-lejbubzk5gqf2",
+    "eventStreamEndpoint": "https://eastus.azurecontainerapps.dev/subscriptions/9f74cf73-75c3-4d5a-9c9b-9627c016e375/resourceGroups/RG-AI-OCIF/containerApps/ca-lejbubzk5gqf2-dataingest/eventstream",
+    "latestReadyRevisionName": "ca-lejbubzk5gqf2-dataingest--0000004",
+    "latestRevisionFqdn": "ca-lejbubzk5gqf2-dataingest--0000004.nicebush-2b45afe7.eastus.azurecontainerapps.io",
+    "latestRevisionName": "ca-lejbubzk5gqf2-dataingest--0000004",
+    "managedEnvironmentId": "/subscriptions/9f74cf73-75c3-4d5a-9c9b-9627c016e375/resourceGroups/RG-AI-OCIF/providers/Microsoft.App/managedEnvironments/cae-lejbubzk5gqf2",
+    "outboundIpAddresses": [
+      "52.226.148.84"
+    ],
+    "provisioningState": "Succeeded",
+    "runningStatus": "Stopped",
+    "template": {
+      "containers": [
+        {
+          "env": [
+            {
+              "name": "APP_CONFIG_ENDPOINT"
+            },
+            {
+              "name": "AZURE_TENANT_ID"
+            },
+            {
+              "name": "AZURE_CLIENT_ID",
+              "value": ""
+            }
+          ],
+          "image": "crlejbubzk5gqf2.azurecr.io/azure-gpt-rag/data-ingestion:76ced0c",
+          "name": "dataingest",
+          "resources": {
+            "cpu": 1.0,
+            "ephemeralStorage": "4Gi",
+            "memory": "3Gi"
+          }
+        }
+      ],
+      "initContainers": null,
+      "revisionSuffix": "",
+      "scale": {
+        "cooldownPeriod": 300,
+        "maxReplicas": 1,
+        "minReplicas": 1,
+        "pollingInterval": 30,
+        "rules": null
+      },
+      "serviceBinds": null,
+      "terminationGracePeriodSeconds": null,
+      "volumes": null
+    },
+    "workloadProfileName": "main"
+  },
+  "resourceGroup": "RG-AI-OCIF",
+  "systemData": {
+    "createdAt": "2026-04-13T14:35:49.5464286",
+    "createdBy": "v-ratt@ocif.pr.gov",
+    "createdByType": "User",
+    "lastModifiedAt": "2026-05-28T15:08:58.8864681",
+    "lastModifiedBy": "v-jeffrinaj@ocif.pr.gov",
+    "lastModifiedByType": "User"
+  },
+  "tags": {
+    "azd-env-name": "ocif_gpt_rag",
+    "azd-service-name": "dataingest"
+  },
+  "type": "Microsoft.App/containerApps"
+}
+? Container app updated.
+?? Updating container app ingress target port.
+[K
+/ Running ..
+| Running ..
+\ Running ..
+- Running ..
+/ Running ..
+| Running ..
+\ Running ..
+- Running ..
+[KWARNING: 
+Ingress Updated. Access your app at https://ca-lejbubzk5gqf2-dataingest.nicebush-2b45afe7.eastus.azurecontainerapps.io/
+
+{
+  "additionalPortMappings": null,
+  "allowInsecure": false,
+  "clientCertificateMode": "Ignore",
+  "corsPolicy": null,
+  "customDomains": null,
+  "exposedPort": 0,
+  "external": true,
+  "fqdn": "ca-lejbubzk5gqf2-dataingest.nicebush-2b45afe7.eastus.azurecontainerapps.io",
+  "ipSecurityRestrictions": null,
+  "stickySessions": {
+    "affinity": "none"
+  },
+  "targetPort": 8080,
+  "traffic": [
+    {
+      "label": "label-1",
+      "latestRevision": true,
+      "weight": 100
+    }
+  ],
+  "transport": "Auto"
+}
+? Ingress target port updated.
+?? Fetching current revision.
+?? Restarting container app revision : ca-lejbubzk5gqf2-dataingest--0000004.
+ERROR: (RevisionOperationError) Error Restart revision ca-lejbubzk5gqf2-dataingest--0000004. Details Cannot restart Revision ca-lejbubzk5gqf2-dataingest--0000004 as it is deactivated or does not exist.
+? Failed to restart container app revision (exit 1).
+
+ERROR: failed running pre hooks: 'predeploy' hook failed with exit code: '1', Path: 'C:\work\gpt_rag_ocif\gpt-rag-ingestion\scripts\deploy.ps1'. : exit code: 1
+WARNING: your version of azd is out of date, you have 1.23.15 and the latest stable version is 1.25.2
+To update to the latest version, run:
+powershell -ex AllSigned -c "Invoke-RestMethod 'https://aka.ms/install-azd.ps1' | Invoke-Expression"
+
+If the install script was run with custom parameters, ensure that the same parameters are used for the upgrade. For advanced install instructions, see: https://aka.ms/azd/upgrade/windows

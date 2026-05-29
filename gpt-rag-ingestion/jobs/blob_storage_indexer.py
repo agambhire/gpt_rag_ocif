@@ -280,7 +280,7 @@ class BlobStorageDocumentIndexer:
                             # Website URLs file: extract id and url
                             entry_id = entry.get("id", "")
                             if entry_id:
-                                result[entry_id] = {"title": entry_id, "url": url}
+                                result[entry_id] = {"title": entry.get("title", entry_id), "url": url}
                         else:
                             # Document URLs file: extract title and url (default behavior)
                             title = entry.get("title", "")

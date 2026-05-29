@@ -15,7 +15,7 @@ SUPPORTED_EXTENSIONS = [
 ]
 
 REFERENCE_REGEX = re.compile(
-    r'\[([^\]]+)\]\(([^)]+)\)',
+    r'\[([^\]]+)\]\((https?://[^\s]+?)\)',
     re.IGNORECASE
 )
 

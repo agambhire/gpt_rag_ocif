@@ -340,17 +340,22 @@ Write-Blue "🔍 Fetching current revision…"
 $currentRevision = az containerapp revision list `
     --name $values.DATA_INGEST_APP_NAME `
     --resource-group $values.AZURE_RESOURCE_GROUP `
-    --query "[0].name" -o tsv
+    --query "[0].name" -o tsv 2>&1
 
-#region Restart Container App
-Write-Green "🔄 Restarting container app revision : $currentRevision…"
-az containerapp revision restart `
-    --name $values.DATA_INGEST_APP_NAME `
-    --resource-group $values.AZURE_RESOURCE_GROUP `
-    --revision $currentRevision
-if ($LASTEXITCODE -ne 0) {
-    Write-ErrorColored "❌ Failed to restart container app revision (exit $LASTEXITCODE)."
-    exit 1
+if ([string]::IsNullOrWhiteSpace($currentRevision)) {
+    Write-Yellow "⚠️  No active revision found. Skipping restart."
+} else {
+    #region Restart Container App (best-effort)
+    Write-Green "🔄 Restarting container app revision : $currentRevision…"
+    az containerapp revision restart `
+        --name $values.DATA_INGEST_APP_NAME `
+        --resource-group $values.AZURE_RESOURCE_GROUP `
+        --revision $currentRevision 2>&1
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Green "✅ Container app revision restarted."
+    } else {
+        Write-Yellow "⚠️  Failed to restart revision (this may be expected if revision is deactivated). Continuing..."
+    }
+    #endregion
 }
-Write-Green "✅ Container app revision restarted."
-#endregion
